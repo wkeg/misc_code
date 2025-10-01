@@ -2,28 +2,28 @@
 Install-Module -Name Posh-SSH -Force
 
 # Define CVM connection parameters
-$CVM_IP = "10.11.0.65"
-$Username = "nutanix"
-$Password = "nutanix/4u"
+$CVM_IP = ""
+$Username = ""
+$Password = ""
 
 # Create a secure password object
 $SecurePass = ConvertTo-SecureString $Password -AsPlainText -Force
 $Cred = New-Object System.Management.Automation.PSCredential ($Username, $SecurePass)
 
-# Create SSH session
+# Create Initial SSH session
 $SshSession = New-SSHSession -ComputerName $CVM_IP -Credential $Cred
 
-# Create SSH session
+# Create Second SSH session to capture hardware info
 $SshSession2 = New-SSHSession -ComputerName $CVM_IP -Credential $Cred
 
-# Create SSH session
+# Create Third SSH session to capture Network information
 $SshSession3 = New-SSHSession -ComputerName $CVM_IP -Credential $Cred
 
-#ethtool cmd 
+# Ethtool & hardware commanda  
 $cmd2 = 'for i in $(/usr/local/nutanix/cluster/bin/svmips); do ssh nutanix@$i "source /etc/profile; ~/ncc/bin/ncc hardware_info show_hardware_info"; done'
-$cmd3 = 'for i in $(source /etc/profile; /usr/local/nutanix/cluster/bin/hostips); do ssh root@$i "echo ============ ethtool -m =============; echo ============= $i =============; echo eth0; /usr/sbin/ethtool -m eth0; echo eth1; /usr/sbin/ethtool -m eth1; echo eth2; /usr/sbin/ethtool -m eth2; echo eth3; /usr/sbin/ethtool -m eth3; echo eth4; /usr/sbin/ethtool -m eth4; echo eth5; /usr/sbin/ethtool -m eth5; echo eth6; /usr/sbin/ethtool -m eth6; echo eth7; /usr/sbin/ethtool -m eth7 "; done'
+$cmd3 = 'for i in $(source /etc/profile; /usr/local/nutanix/cluster/bin/hostips); do ssh root@$i "echo ============= $i =============; echo eth0; /usr/sbin/ethtool -m eth0; echo eth1; /usr/sbin/ethtool -m eth1; echo eth2; /usr/sbin/ethtool -m eth2; echo eth3; /usr/sbin/ethtool -m eth3; echo eth4; /usr/sbin/ethtool -m eth4; echo eth5; /usr/sbin/ethtool -m eth5; echo eth6; /usr/sbin/ethtool -m eth6; echo eth7; /usr/sbin/ethtool -m eth7 "; done'
 
-# Define multiple commands separated by semicolon
+# Define array of commands for Nutanix cluster validation
 $commands = @(
   "/home/nutanix/prism/cli/ncli cluster get-params",
   "/usr/local/nutanix/bin/acli host.list",
@@ -70,8 +70,9 @@ $commands = @(
   "source /etc/profile; ~/ncc/bin/ncc health_checks run_all"
 )
 
-# Run commands and append output to file
-$outputFile = "cvm-10.11.0.65-validation_out.txt"
+# Define output file
+$outputFile = "cvm-$CVM_IP-validation_out.txt"
+
 foreach ($cmd in $commands) {
    # Write a separator line with the command
    "-------------------------" | Out-File -FilePath $outputFile -Append
@@ -90,13 +91,26 @@ foreach ($cmd in $commands) {
 Remove-SSHSession -SSHSession $SshSession
 
 #Second ssh command to capture hardware info
+# Write a separator line with the command
+"-------------------------" | Out-File -FilePath $outputFile -Append
+"Command: $cmd2" | Out-File -FilePath $outputFile -Append
+"-------------------------" | Out-File -FilePath $outputFile -Append
+
 $result2 = Invoke-SSHCommand -SSHSession $SshSession2 -Command $cmd2 -TimeOut 600
 $result2.Output | Out-File -FilePath $outputFile -Append
+
+# Add a blank line afterward
+"" | Out-File -FilePath $outputFile -Append
 
 # Remove SSH session
 Remove-SSHSession -SSHSession $SshSession2
 
-#Third ssh command to capture network info 
+#Third ssh command to capture network info
+# Write a separator line with the command
+"-------------------------" | Out-File -FilePath $outputFile -Append
+"Command: $cmd3" | Out-File -FilePath $outputFile -Append
+"-------------------------" | Out-File -FilePath $outputFile -Append
+
 $result3 = Invoke-SSHCommand -SSHSession $SshSession3 -Command $cmd3 -TimeOut 600
 $result3.Output | Out-File -FilePath $outputFile -Append
 
